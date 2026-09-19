@@ -1,159 +1,38 @@
-# Arquitetura Genérica de Backend
+# Arquitetura de backend
 
-## 1. Visão Geral
+Referência arquitetural para o backend de sistemas de informação, pensada como ponto de partida de novos projetos antes de implementar os domínios de negócio.
 
-Este documento descreve uma arquitetura inicial e reutilizável para o backend de sistemas de informação.
+A stack inicial é Java, Spring Boot e PostgreSQL, em um monólito modular com Clean Architecture leve.
 
-A proposta é servir como referência arquitetural para novos projetos antes da implementação dos domínios específicos do negócio.
-
-A stack inicial será baseada em:
-
-```text
-Java
-Spring Boot
-PostgreSQL
-```
-
-seguindo:
-
-```text
-Monólito Modular
-+
-Clean Architecture leve
-```
-
-Princípios principais:
-
-```text
-Começar simples.
-
-Organizar por domínio.
-
-Separar responsabilidades.
-
-Manter regras próximas do negócio.
-
-Isolar infraestrutura e integrações externas.
-
-Preservar histórico quando necessário.
-
-Criar abstrações apenas quando houver benefício real.
-```
+Os princípios que orientam todo o resto do documento: começar simples, organizar por domínio, separar responsabilidades, manter as regras próximas do negócio, isolar infraestrutura e integrações, preservar histórico quando ele importa e criar abstrações apenas quando houver benefício real.
 
 ---
 
-# 2. Estilo Arquitetural
+## 1. Estilo arquitetural
 
-A aplicação será inicialmente entregue como um único backend.
-
-Internamente será dividida em módulos funcionais.
-
-Exemplo conceitual:
+A aplicação é entregue como um único backend, dividido internamente em módulos funcionais:
 
 ```text
-Backend
+backend
  ├── shared
  ├── auth
  ├── users
  ├── module-a
  ├── module-b
  ├── integrations
- └── dashboard
 ```
 
-Os módulos de negócio serão definidos pelos requisitos de cada projeto.
+A arquitetura não antecipa domínios que ainda não existem. O monólito modular entrega deploy único, transações simples, desenvolvimento local simples, menos complexidade operacional e comunicação direta entre módulos. A separação interna por domínio reduz o acoplamento e deixa a porta aberta para extrair serviços mais tarde, se isso fizer falta. Microserviços não são o ponto de partida.
 
-A arquitetura não deve antecipar domínios que ainda não existem.
+## 2. Stack inicial
 
----
+Previstos desde o começo: Java, Spring Boot (Web, Security, Data JPA), PostgreSQL, Bean Validation, OpenAPI, ProblemDetail e Docker.
 
-# 3. Monólito Modular
+Entram conforme a necessidade aparecer: migrations, mapeamento de DTOs, storage, cache, mensageria, jobs e observabilidade. Nenhuma ferramenta deve ser exigida pela arquitetura antes de ter uso concreto.
 
-O projeto não deve começar automaticamente utilizando microserviços.
+## 3. Organização por domínio
 
-O monólito modular permite inicialmente:
-
-```text
-um único deploy
-transações simples
-desenvolvimento local simples
-menor complexidade operacional
-comunicação direta entre módulos
-```
-
-Ao mesmo tempo, a separação interna por domínio reduz o acoplamento e facilita uma possível evolução futura.
-
----
-
-# 4. Stack Inicial
-
-Ferramentas previstas:
-
-```text
-Java
-Spring Boot
-Spring Web
-Spring Security
-Spring Data JPA
-PostgreSQL
-Bean Validation
-OpenAPI
-ProblemDetail
-Docker
-```
-
-Outras ferramentas podem ser adicionadas conforme necessidade do projeto.
-
-Exemplos:
-
-```text
-migrations
-mapeamento de DTOs
-storage
-cache
-mensageria
-jobs
-observabilidade
-```
-
-A arquitetura não deve exigir ferramentas que ainda não possuem uso concreto.
-
----
-
-# 5. Organização por Domínio
-
-Evitar uma estrutura puramente técnica como:
-
-```text
-controllers
-services
-repositories
-entities
-```
-
-Preferir organização por domínio:
-
-```text
-products
- ├── api
- ├── application
- ├── domain
- └── infrastructure
-
-orders
- ├── api
- ├── application
- ├── domain
- └── infrastructure
-```
-
-Código relacionado ao mesmo contexto deve permanecer próximo.
-
----
-
-# 6. Estrutura Geral
-
-Estrutura conceitual:
+Em vez de uma estrutura puramente técnica (`controllers`, `services`, `repositories`, `entities`), agrupe o código por domínio, com as camadas dentro de cada módulo:
 
 ```text
 src/main/java/com/company/project
@@ -161,812 +40,169 @@ src/main/java/com/company/project
  ├── auth
  ├── users
  ├── integrations
- ├── dashboard
- ├── module-a
- └── module-b
+ ├── products
+ │   ├── api
+ │   ├── application
+ │   ├── domain
+ │   └── infrastructure
+ └── orders
+     ├── api
+     ├── application
+     ├── domain
+     └── infrastructure
 ```
 
-Cada módulo poderá possuir:
+Código do mesmo contexto fica junto. Nem todo módulo precisa das quatro camadas: a estrutura acompanha a complexidade real.
+
+### `api`
+
+Interface externa da aplicação: controllers, requests, responses, validação de entrada e contratos HTTP. Recebe a requisição, valida a entrada, chama a aplicação e devolve a resposta. Não concentra regra de negócio.
+
+### `application`
+
+Casos de uso e coordenação do fluxo: services, use cases, commands, queries, transações, mapeamentos e orquestração. Comece simples e quebre em casos de uso menores quando a complexidade justificar.
+
+### `domain`
+
+Conceitos e regras do negócio: entidades, enums, value objects, métodos e eventos de domínio, exceções. As regras importantes ficam próximas dos objetos que representam o negócio, em operações expressivas como `order.cancel()`, `payment.complete()` ou `document.approve()`, em vez de alterações indiscriminadas de estado.
+
+### `infrastructure`
+
+Detalhes técnicos: persistência, repositories, integrações externas, storage, clients HTTP, adapters e implementações de gateways. Infraestrutura é detalhe da aplicação, não regra de negócio.
+
+### Fluxo principal
 
 ```text
-api
-application
-domain
-infrastructure
+HTTP Request → Controller → Application → Domain → Repository / Gateway / Provider → Infrastructure
 ```
 
-Nem todo módulo precisa obrigatoriamente de todas as camadas.
+A dependência caminha da interface externa em direção às regras da aplicação.
 
-A estrutura deve acompanhar a complexidade real.
+## 4. Shared
 
----
+`shared` guarda apenas o que é de fato transversal: configuração, segurança, tratamento de erros, paginação, auditoria e validações comuns. O risco conhecido é virar depósito de classes sem domínio claro, então na dúvida vale a regra: domínio antes de shared.
 
-# 7. Camada `api`
+## 5. Autenticação e autorização
 
-Responsável pela interface externa da aplicação.
+A estratégia de autenticação varia por projeto, e uma implementação comum combina access token com refresh token. O backend valida credenciais, emite, renova e encerra a sessão, e identifica o usuário autenticado.
 
-Pode conter:
+A autorização acontece no backend e pode controlar leitura, criação, edição, remoção, aprovação e a execução de ações específicas. O frontend adapta a interface com base nessas permissões, mas isso nunca substitui a proteção no servidor.
+
+## 6. Banco de dados
+
+O banco relacional inicial é PostgreSQL, com migrações versionadas, identificadores consistentes, auditoria quando necessária, soft delete quando fizer sentido, índices baseados em consultas reais e paginação e filtros para grandes conjuntos.
+
+Alterações de schema não dependem de mudança manual em cada ambiente: código mais migration devem produzir um schema reproduzível, aplicável de forma previsível em qualquer ambiente.
+
+### Auditoria
+
+Entidades que precisam de rastreabilidade podem carregar `createdAt`, `updatedAt`, `createdBy` e `updatedBy`. Use auditoria onde houver valor funcional ou operacional, não em todas as entidades por hábito.
+
+### Soft delete
+
+Soft delete serve a registros cadastrais e costuma ser inadequado para informações que precisam preservar histórico explícito, porque soft delete não é histórico de negócio.
+
+## 7. Contratos e validação
+
+A API não expõe entidades de persistência diretamente. Separe Request, Domain/Entity e Response para manter o contrato HTTP desacoplado da estrutura interna.
+
+A validação estrutural acontece antes do caso de uso, e a regra de domínio depois dele:
 
 ```text
-controllers
-requests
-responses
-validação de entrada
-contratos HTTP
+Request → Validação estrutural → Application → Regra de negócio
 ```
 
-Responsabilidades principais:
+Formato e regra de domínio são responsabilidades diferentes.
+
+## 8. Persistência e listagens
+
+Repositories representam o acesso aos dados, sempre por intermédio da aplicação:
 
 ```text
-receber requisição
-validar entrada
-chamar aplicação
-retornar resposta
+Controller → Application → Repository
 ```
 
-Não deve concentrar regras de negócio.
+Controllers não acessam repositories. Consultas mais complexas podem usar mecanismos específicos conforme a necessidade.
 
----
+Listagens devem prever paginação, busca, filtros e ordenação quando o volume justificar, com contrato consistente entre os módulos. Quando os filtros forem combináveis, evite criar um método de repository para cada combinação.
 
-# 8. Camada `application`
+## 9. Tratamento de erros
 
-Responsável pelos casos de uso e coordenação do fluxo da aplicação.
+O tratamento é centralizado e devolve respostas padronizadas. As categorias comuns são validação, recurso não encontrado, não autenticado, não autorizado, conflito, regra de negócio, integração externa e erro inesperado.
 
-Pode conter:
+## 10. API REST e OpenAPI
+
+A API segue convenções consistentes: recursos no plural, rotas previsíveis, DTOs de entrada e saída, status HTTP adequados, paginação e filtros consistentes, erros padronizados e documentação. Versionamento entra quando existir necessidade real de manter contratos incompatíveis.
+
+O contrato é descrito em OpenAPI, cobrindo endpoints, requests, responses, autenticação, erros, paginação e filtros. Ele também serve de base para gerar clients em outros sistemas.
+
+## 11. Integrações externas
+
+Integrações ficam isoladas das regras de negócio, atrás de um gateway ou provider:
 
 ```text
-services
-use cases
-commands
-queries
-transações
-mapeamentos
-orquestração
+Application → Gateway / Provider → Infrastructure → External API
 ```
 
-Princípio:
+Isso vale para pagamentos, assinatura, storage, email, ERP, CRM, serviços governamentais e provedores de identidade. Secrets e credenciais vêm de configuração externa.
+
+### Estado de processos externos
+
+Quando a integração tem ciclo de vida, persista localmente o estado relevante (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`). Com isso é possível consultar estado, exibir histórico, processar callbacks, fazer retry e auditar falhas, sem depender do estado temporário devolvido pelo provedor.
+
+### Webhooks
+
+Webhooks são entradas externas da aplicação:
 
 ```text
-Começar simples.
-
-Separar em casos de uso menores
-quando a complexidade justificar.
+External Provider → Webhook → Validação → Idempotência → Application → Domain
 ```
 
----
+Valide a autenticidade pelo mecanismo que o provedor oferecer.
 
-# 9. Camada `domain`
+### Idempotência
 
-Responsável pelos conceitos e regras do negócio.
+Operações que podem se repetir precisam ser avaliadas quanto à idempotência, principalmente em webhooks, jobs, retries, integrações externas e operações financeiras. Executar a mesma operação de novo não deve gerar efeitos duplicados indevidos.
 
-Pode conter:
+## 12. Storage
+
+Módulos de negócio não dependem de SDKs específicos de storage. A abstração fica no caminho, para que a implementação concreta mude sem tocar no domínio:
 
 ```text
-entidades
-enums
-value objects
-regras de negócio
-métodos de domínio
-eventos de domínio
-exceções de domínio
+Application → Storage abstraction → Infrastructure → Storage provider
 ```
 
-Regras importantes devem permanecer próximas dos objetos que representam o negócio.
+## 13. Interfaces e padrões
 
-Preferir operações expressivas como:
+Interfaces entram quando existe necessidade real de abstração: gateways, providers, strategies, adapters, ports, integrações externas e casos com múltiplas implementações. Não crie o par `Service`/`ServiceImpl` para todo serviço interno. Interface quando houver motivo, classe concreta quando for suficiente.
+
+O mesmo vale para os padrões de projeto. Repository, Gateway, Provider, Strategy, Factory, Query Service, Domain Events e State resolvem problemas concretos e não devem ser introduzidos por formalidade: um padrão precisa reduzir complexidade, não criar.
+
+## 15. Jobs, eventos e transações
+
+Rotinas agendadas apenas disparam casos de uso, e devem ser seguras para reexecução sempre que possível:
 
 ```text
-order.cancel()
-payment.complete()
-document.approve()
+Job → Application → Domain → Repository
 ```
 
-em vez de alterações indiscriminadas de estado.
+Nada de regra de negócio no scheduler.
 
----
+Módulos conversam pela camada de aplicação uns dos outros. Prefira `Module A → Module B Application` a `Module A → Module B Repository` assim que o acesso direto começar a gerar acoplamento.
 
-# 10. Camada `infrastructure`
+A aplicação começa síncrona enquanto isso for suficiente. Eventos internos ou processamento assíncrono entram quando houver processamento demorado, retry, grande volume, necessidade de desacoplamento ou várias reações ao mesmo evento. Filas e mensageria não entram por antecipação.
 
-Responsável pelos detalhes técnicos.
+Transações são controladas na camada de aplicação e representam o limite de um caso de uso. Evite transação em controller e evite manter transação aberta durante operação externa demorada sem necessidade.
 
-Pode conter:
+## 16. Configuração, logs e segurança
 
-```text
-persistência
-repositories
-integrações externas
-storage
-clients HTTP
-adapters
-implementações de gateways
-```
+A aplicação recebe configuração por variáveis de ambiente, agrupadas por aplicação, banco, autenticação, storage, integrações, jobs e observabilidade. Secrets nunca ficam no código-fonte.
 
-Infraestrutura deve ser tratada como detalhe da aplicação, não como regra de negócio.
+Os logs registram o suficiente para operar e diagnosticar (inicialização, falhas, integrações, jobs, webhooks e operações relevantes) e nunca senhas, tokens, secrets ou dados sensíveis sem necessidade. Healthchecks ficam disponíveis para a infraestrutura quando necessário.
 
----
+Segurança mínima, aplicada independentemente do que o frontend faça: senhas armazenadas de forma segura, autenticação e autorização no backend, secrets fora do código, entrada validada, erros sem exposição de detalhes internos, logs sem credenciais, integrações protegidas e arquivos privados protegidos.
 
-# 11. Fluxo Principal
-
-Fluxo conceitual:
-
-```text
-HTTP Request
-     ↓
-Controller
-     ↓
-Application
-     ↓
-Domain
-     ↓
-Repository / Gateway / Provider
-     ↓
-Infrastructure
-```
-
-A dependência deve caminhar da interface externa em direção às regras da aplicação.
-
----
-
-# 12. Shared
-
-O módulo `shared` deve conter apenas elementos realmente transversais.
-
-Exemplos:
-
-```text
-configuração
-segurança
-tratamento de erros
-paginação
-auditoria
-validações comuns
-```
-
-Evitar transformar `shared` em depósito de classes sem domínio claro.
-
-Princípio:
-
-```text
-Domínio antes de Shared.
-```
-
----
-
-# 13. Autenticação
-
-A aplicação deverá possuir uma estratégia de autenticação adequada ao projeto.
-
-Uma implementação comum pode utilizar:
-
-```text
-Access Token
-+
-Refresh Token
-```
-
-O backend será responsável por:
-
-```text
-validar credenciais
-emitir sessão
-renovar sessão
-encerrar sessão
-identificar usuário autenticado
-```
-
-Detalhes concretos podem variar conforme o projeto.
-
----
-
-# 14. Autorização
-
-A autorização deve acontecer no backend.
-
-Permissões poderão controlar:
-
-```text
-leitura
-criação
-edição
-remoção
-aprovação
-execução de ações específicas
-```
-
-O frontend poderá adaptar a interface com base nessas permissões, mas nunca substituir a proteção no backend.
-
----
-
-# 15. Banco de Dados
-
-O banco relacional inicial será:
-
-```text
-PostgreSQL
-```
-
-Princípios:
-
-```text
-migrações versionadas
-identificadores consistentes
-auditoria quando necessária
-soft delete quando fizer sentido
-índices baseados em consultas reais
-paginação e filtros para grandes conjuntos
-```
-
-Alterações de schema não devem depender de mudanças manuais em cada ambiente.
-
----
-
-# 16. Migrations
-
-A estrutura do banco deve evoluir através de migrations versionadas.
-
-Princípio:
-
-```text
-Código
-+
-Migration
-=
-Schema reproduzível
-```
-
-Toda alteração estrutural relevante deve poder ser aplicada de maneira previsível nos diferentes ambientes.
-
----
-
-# 17. Auditoria
-
-Entidades que necessitam rastreabilidade podem possuir informações como:
-
-```text
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
-
-Auditoria deve ser utilizada quando houver valor funcional ou operacional.
-
-Não precisa ser aplicada indiscriminadamente a todas as entidades.
-
----
-
-# 18. Soft Delete
-
-Soft delete deve ser utilizado somente quando fizer sentido para o negócio.
-
-Pode ser adequado para registros cadastrais.
-
-Pode ser inadequado para informações que precisam preservar histórico explícito.
-
-Princípio:
-
-```text
-Soft delete não substitui histórico de negócio.
-```
-
----
-
-# 19. DTOs
-
-A API não deve expor diretamente entidades de persistência.
-
-Separar conceitualmente:
-
-```text
-Request
-Domain / Entity
-Response
-```
-
-Isso mantém o contrato HTTP desacoplado da estrutura interna.
-
----
-
-# 20. Validação
-
-A aplicação deve validar os dados de entrada antes da execução do caso de uso.
-
-Fluxo:
-
-```text
-Request
- ↓
-Validação estrutural
- ↓
-Application
- ↓
-Regra de negócio
-```
-
-Validações de formato e regras de domínio são responsabilidades diferentes.
-
----
-
-# 21. Persistência
-
-Repositories representam o acesso aos dados.
-
-Fluxo esperado:
-
-```text
-Controller
- ↓
-Application
- ↓
-Repository
-```
-
-Controllers não devem acessar repositories diretamente.
-
-Consultas mais complexas podem utilizar mecanismos específicos conforme a necessidade.
-
----
-
-# 22. Paginação, Busca e Filtros
-
-Listagens devem considerar:
-
-```text
-paginação
-busca
-filtros
-ordenação
-```
-
-quando o volume de dados justificar.
-
-O contrato deve ser consistente entre os módulos.
-
-Evitar criar métodos de repository excessivamente específicos quando filtros combináveis forem necessários.
-
----
-
-# 23. Tratamento de Erros
-
-O tratamento de erros deve ser centralizado e consistente.
-
-Categorias comuns:
-
-```text
-validação
-recurso não encontrado
-não autenticado
-não autorizado
-conflito
-regra de negócio
-integração externa
-erro inesperado
-```
-
-A API deve retornar respostas de erro padronizadas.
-
----
-
-# 24. API REST
-
-A API deverá seguir convenções consistentes.
-
-Princípios:
-
-```text
-recursos no plural
-rotas previsíveis
-DTOs de entrada e saída
-status HTTP adequados
-paginação consistente
-filtros consistentes
-erros padronizados
-documentação da API
-```
-
-O versionamento pode ser introduzido quando existir necessidade real de manter contratos incompatíveis.
-
----
-
-# 25. OpenAPI
-
-A API deverá possuir documentação de contrato.
-
-OpenAPI poderá descrever:
-
-```text
-endpoints
-requests
-responses
-autenticação
-erros
-paginação
-filtros
-```
-
-O contrato poderá também servir como base para geração de clients em outros sistemas.
-
----
-
-# 26. Integrações Externas
-
-Integrações externas devem permanecer isoladas das regras de negócio.
-
-Exemplos:
-
-```text
-pagamentos
-assinatura
-storage
-email
-ERP
-CRM
-serviços governamentais
-provedores de identidade
-```
-
-Fluxo conceitual:
-
-```text
-Application
-    ↓
-Gateway / Provider
-    ↓
-Infrastructure
-    ↓
-External API
-```
-
-Secrets e credenciais devem vir de configuração externa.
-
----
-
-# 27. Interfaces
-
-Interfaces devem ser utilizadas quando houver necessidade real de abstração.
-
-Faz sentido principalmente para:
-
-```text
-gateways
-providers
-strategies
-adapters
-ports
-integrações externas
-múltiplas implementações
-```
-
-Não criar automaticamente:
-
-```text
-Service
-ServiceImpl
-```
-
-para todo serviço interno.
-
-Princípio:
-
-```text
-Interface quando houver motivo.
-
-Classe concreta quando for suficiente.
-```
-
----
-
-# 28. Padrões de Projeto
-
-Padrões devem resolver problemas reais.
-
-Podem ser utilizados quando necessário:
-
-```text
-Repository
-Gateway
-Provider
-Strategy
-Factory
-Query Service
-Domain Events
-State
-```
-
-Não devem ser introduzidos apenas por formalidade.
-
-Princípio:
-
-```text
-Padrão deve reduzir complexidade,
-não criar complexidade.
-```
-
----
-
-# 29. Histórico de Negócio
-
-Algumas operações não devem simplesmente sobrescrever o registro anterior.
-
-Exemplos conceituais:
-
-```text
-renegociação
-reabertura
-substituição
-reprocessamento
-nova versão
-reenvio
-```
-
-Quando o histórico for relevante:
-
-```text
-registro anterior
-      ↓
-nova operação
-      ↓
-novo estado ou registro
-      ↓
-vínculo entre os dois
-```
-
-Princípio:
-
-```text
-Não destruir informações necessárias
-para explicar como o estado atual foi alcançado.
-```
-
----
-
-# 30. Storage
-
-Módulos de negócio não devem depender diretamente de SDKs específicos de storage.
-
-Fluxo:
-
-```text
-Application
-    ↓
-Storage abstraction
-    ↓
-Infrastructure
-    ↓
-Storage provider
-```
-
-A implementação concreta poderá variar sem alterar o domínio.
-
----
-
-# 31. Processos Externos
-
-Quando uma integração possuir ciclo de vida, o estado relevante deverá ser persistido localmente quando necessário.
-
-Exemplos:
-
-```text
-PENDING
-PROCESSING
-COMPLETED
-FAILED
-```
-
-Isso permite:
-
-```text
-consultar estado
-exibir histórico
-processar callbacks
-realizar retry
-auditar falhas
-```
-
-A aplicação não deve depender exclusivamente do estado temporário retornado pelo provedor externo.
-
----
-
-# 32. Webhooks
-
-Webhooks devem ser tratados como entradas externas da aplicação.
-
-Fluxo conceitual:
-
-```text
-External Provider
-      ↓
-Webhook
-      ↓
-Validação
-      ↓
-Idempotência
-      ↓
-Application
-      ↓
-Domain
-```
-
-Quando possível, validar autenticidade através do mecanismo oferecido pelo provedor.
-
----
-
-# 33. Idempotência
-
-Operações que podem ser repetidas precisam ser avaliadas quanto à idempotência.
-
-Isso é especialmente importante em:
-
-```text
-webhooks
-jobs
-retries
-integrações externas
-operações financeiras
-```
-
-Princípio:
-
-```text
-Executar novamente a mesma operação
-não deve gerar efeitos duplicados indevidos.
-```
-
----
-
-# 34. Jobs
-
-Rotinas agendadas devem apenas disparar casos de uso.
-
-Fluxo:
-
-```text
-Job
- ↓
-Application
- ↓
-Domain
- ↓
-Repository
-```
-
-Evitar concentrar regras de negócio diretamente no scheduler.
-
-Jobs devem ser seguros para reexecução sempre que possível.
-
----
-
-# 35. Comunicação Entre Módulos
-
-Módulos devem se comunicar através de interfaces claras da camada de aplicação.
-
-Preferir:
-
-```text
-Module A
-   ↓
-Module B Application
-```
-
-em vez de:
-
-```text
-Module A
-   ↓
-Module B Repository
-```
-
-quando o acesso direto começar a gerar acoplamento.
-
----
-
-# 36. Eventos e Processamento Assíncrono
-
-A aplicação deve começar síncrona quando isso for suficiente.
-
-Eventos internos ou processamento assíncrono podem ser introduzidos quando existirem necessidades como:
-
-```text
-processamento demorado
-retry
-grande volume
-desacoplamento
-múltiplas reações ao mesmo evento
-```
-
-Não adicionar filas ou mensageria apenas por antecipação.
-
----
-
-# 37. Transações
-
-Transações devem ser controladas na camada de aplicação.
-
-Elas devem representar limites claros de um caso de uso.
-
-Evitar transações em controllers.
-
-Também deve ser evitado manter transações de banco abertas durante operações externas demoradas sem necessidade.
-
----
-
-# 38. Configuração
-
-A aplicação deverá receber configurações através de variáveis de ambiente.
-
-Exemplos de grupos:
-
-```text
-aplicação
-banco
-autenticação
-storage
-integrações
-jobs
-observabilidade
-```
-
-Secrets nunca devem ser armazenados diretamente no código-fonte.
-
----
-
-# 39. Logs e Observabilidade
-
-A aplicação deve registrar informações suficientes para operação e diagnóstico.
-
-Exemplos:
-
-```text
-inicialização
-falhas
-integrações
-jobs
-webhooks
-operações relevantes
-```
-
-Não registrar:
-
-```text
-senhas
-tokens
-secrets
-dados sensíveis sem necessidade
-```
-
-Healthchecks também devem estar disponíveis para infraestrutura quando necessário.
-
----
-
-# 40. Segurança
-
-Princípios mínimos:
-
-```text
-senhas armazenadas de forma segura
-
-autenticação e autorização no backend
-
-secrets fora do código
-
-entrada validada
-
-erros sem exposição de detalhes internos
-
-logs sem credenciais
-
-integrações protegidas
-
-arquivos privados protegidos
-```
-
-Segurança deve ser aplicada independentemente do comportamento do frontend.
-
----
-
-# 41. Estrutura Inicial do Repositório
-
-Estrutura conceitual:
+## 17. Estrutura do repositório
 
 ```text
 backend
@@ -976,202 +212,47 @@ backend
  │   │   ├── java
  │   │   └── resources
  │   └── test
- │
  ├── .env.example
  ├── Dockerfile
- └── build file
+ └── docker-compose.yml
 ```
 
-Os detalhes poderão variar conforme a implementação escolhida.
+Os detalhes variam conforme a implementação escolhida.
 
----
+## 18. Ordem inicial de implementação
 
-# 42. Ordem Inicial de Implementação
+1. Criar o projeto backend.
+2. Configurar banco e migrations.
+3. Criar a estrutura modular e o `shared` básico.
+4. Configurar tratamento de erros e validação.
+5. Configurar segurança e implementar autenticação e autorização.
+6. Configurar a documentação da API.
+7. Implementar o primeiro domínio.
+8. Implementar integrações quando forem necessárias.
+9. Adicionar jobs, storage e eventos conforme a necessidade.
+10. Evoluir a arquitetura conforme a complexidade real.
 
-Fluxo sugerido:
+## 19. O que evitar
+
+- Tudo em controllers, tudo em services ou tudo em `shared`.
+- Controller acessando repository ou contendo regra de negócio.
+- Entity exposta diretamente pela API.
+- Domínio dependendo de SDK externo.
+- Secrets no código.
+- Interfaces, factories e strategies sem necessidade ou sem variação real.
+- Mensageria sem necessidade e microserviços antes da hora.
+- `RuntimeException` genérica para qualquer erro.
+- Regra de negócio dentro de jobs.
+- Regras duplicadas entre módulos.
+
+## 20. Resumo
+
+A arquitetura inicial é Java, Spring Boot e PostgreSQL em um monólito modular com Clean Architecture leve, organizado em `shared`, `auth`, `users`, os módulos de negócio e `integrations`. Cada módulo pode ter `api`, `application`, `domain` e `infrastructure`, e o fluxo principal atravessa essas camadas nessa ordem:
 
 ```text
-1. Criar projeto backend.
-
-2. Configurar banco.
-
-3. Configurar migrations.
-
-4. Criar estrutura modular.
-
-5. Criar shared básico.
-
-6. Configurar tratamento de erros.
-
-7. Configurar validação.
-
-8. Configurar segurança.
-
-9. Implementar autenticação.
-
-10. Implementar autorização.
-
-11. Configurar documentação da API.
-
-12. Implementar primeiro domínio.
-
-13. Implementar integrações quando necessárias.
-
-14. Adicionar jobs, storage e eventos conforme necessidade.
-
-15. Evoluir a arquitetura conforme a complexidade real.
+HTTP → API → Application → Domain → Repository / Gateway / Provider → Infrastructure
 ```
 
----
+O backend continua responsável pelas regras críticas do sistema. Controllers permanecem simples, as regras ficam próximas do domínio, infraestrutura e integrações ficam isoladas e abstrações só entram quando resolverem um problema real.
 
-# 43. O que Evitar
-
-Evitar:
-
-```text
-Tudo em controllers.
-
-Tudo em services.
-
-Tudo em shared.
-
-Controller acessando repository.
-
-Controller contendo regra de negócio.
-
-Entity exposta diretamente pela API.
-
-Domínio dependendo de SDK externo.
-
-Secrets no código.
-
-Interfaces sem necessidade.
-
-Factories sem necessidade.
-
-Strategies sem variação real.
-
-Mensageria sem necessidade.
-
-Microserviços antes da necessidade.
-
-RuntimeException genérica para qualquer erro.
-
-Regras de negócio dentro de jobs.
-
-Duplicação de regras entre módulos.
-```
-
----
-
-# 44. Princípios Finais
-
-A arquitetura deverá seguir:
-
-```text
-Domínio antes de camada técnica.
-
-Regra de negócio próxima do domínio.
-
-Controller simples.
-
-Application coordenando casos de uso.
-
-Infraestrutura isolada.
-
-Integração externa atrás de uma fronteira.
-
-Histórico preservado quando necessário.
-
-Idempotência onde houver repetição possível.
-
-Interfaces apenas quando agregarem valor.
-
-Complexidade apenas quando houver necessidade.
-```
-
----
-
-# 45. Resumo
-
-A arquitetura inicial será:
-
-```text
-Java
-+
-Spring Boot
-+
-PostgreSQL
-+
-Monólito Modular
-+
-Clean Architecture leve
-```
-
-A organização principal será:
-
-```text
-shared
-auth
-users
-modules de negócio
-integrations
-dashboard
-```
-
-Cada módulo poderá possuir:
-
-```text
-api
-application
-domain
-infrastructure
-```
-
-O fluxo principal será:
-
-```text
-HTTP
- ↓
-API
- ↓
-Application
- ↓
-Domain
- ↓
-Repository / Gateway / Provider
- ↓
-Infrastructure
-```
-
-O backend continuará sendo responsável pelas regras críticas do sistema.
-
-Controllers deverão permanecer simples.
-
-Regras de negócio devem permanecer próximas do domínio.
-
-Infraestrutura e integrações externas devem permanecer isoladas.
-
-Abstrações devem ser introduzidas apenas quando resolverem um problema real.
-
-O objetivo deste documento não é definir cada detalhe da implementação.
-
-Ele estabelece os fundamentos que deverão orientar o desenvolvimento do backend.
-
-Regra final:
-
-```text
-Começar simples.
-
-Organizar por domínio.
-
-Separar responsabilidades.
-
-Proteger regras de negócio.
-
-Isolar infraestrutura.
-
-Preservar histórico.
-
-Evoluir somente quando houver necessidade.
-```
+Este documento não define cada detalhe da implementação. Ele estabelece os fundamentos que orientam o desenvolvimento: começar simples, organizar por domínio, separar responsabilidades, proteger as regras de negócio, isolar a infraestrutura, preservar histórico e evoluir só quando houver necessidade.

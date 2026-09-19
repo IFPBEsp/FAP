@@ -178,7 +178,7 @@ Interfaces entram quando existe necessidade real de abstração: gateways, provi
 
 O mesmo vale para os padrões de projeto. Repository, Gateway, Provider, Strategy, Factory, Query Service, Domain Events e State resolvem problemas concretos e não devem ser introduzidos por formalidade: um padrão precisa reduzir complexidade, não criar.
 
-## 15. Jobs, eventos e transações
+## 14. Jobs, eventos e transações
 
 Rotinas agendadas apenas disparam casos de uso, e devem ser seguras para reexecução sempre que possível:
 
@@ -194,7 +194,7 @@ A aplicação começa síncrona enquanto isso for suficiente. Eventos internos o
 
 Transações são controladas na camada de aplicação e representam o limite de um caso de uso. Evite transação em controller e evite manter transação aberta durante operação externa demorada sem necessidade.
 
-## 16. Configuração, logs e segurança
+## 15. Configuração, logs e segurança
 
 A aplicação recebe configuração por variáveis de ambiente, agrupadas por aplicação, banco, autenticação, storage, integrações, jobs e observabilidade. Secrets nunca ficam no código-fonte.
 
@@ -202,7 +202,7 @@ Os logs registram o suficiente para operar e diagnosticar (inicialização, falh
 
 Segurança mínima, aplicada independentemente do que o frontend faça: senhas armazenadas de forma segura, autenticação e autorização no backend, secrets fora do código, entrada validada, erros sem exposição de detalhes internos, logs sem credenciais, integrações protegidas e arquivos privados protegidos.
 
-## 17. Estrutura do repositório
+## 16. Estrutura do repositório
 
 ```text
 backend
@@ -219,7 +219,7 @@ backend
 
 Os detalhes variam conforme a implementação escolhida.
 
-## 18. Ordem inicial de implementação
+## 17. Ordem inicial de implementação
 
 1. Criar o projeto backend.
 2. Configurar banco e migrations.
@@ -232,7 +232,7 @@ Os detalhes variam conforme a implementação escolhida.
 9. Adicionar jobs, storage e eventos conforme a necessidade.
 10. Evoluir a arquitetura conforme a complexidade real.
 
-## 19. O que evitar
+## 18. O que evitar
 
 - Tudo em controllers, tudo em services ou tudo em `shared`.
 - Controller acessando repository ou contendo regra de negócio.
@@ -245,7 +245,7 @@ Os detalhes variam conforme a implementação escolhida.
 - Regra de negócio dentro de jobs.
 - Regras duplicadas entre módulos.
 
-## 20. Resumo
+## 19. Resumo
 
 A arquitetura inicial é Java, Spring Boot e PostgreSQL em um monólito modular com Clean Architecture leve, organizado em `shared`, `auth`, `users`, os módulos de negócio e `integrations`. Cada módulo pode ter `api`, `application`, `domain` e `infrastructure`, e o fluxo principal atravessa essas camadas nessa ordem:
 
